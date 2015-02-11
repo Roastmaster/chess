@@ -1,4 +1,4 @@
-/* don't ever put every chess object in one file */
+/*  don't ever put every chess object in one file  */
 
 import java.awt.Color;
 import java.awt.GridLayout;
