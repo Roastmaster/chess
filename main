@@ -1,0 +1,947 @@
+import java.awt.Color;
+import java.awt.GridLayout;
+import java.awt.event.MouseAdapter;
+import java.awt.event.MouseEvent;
+import java.awt.event.MouseListener;
+import java.awt.event.MouseMotionListener;
+
+import javax.swing.JFrame;
+import javax.swing.JOptionPane;
+import javax.swing.Icon;
+import javax.swing.ImageIcon;
+import javax.swing.JLabel;
+import javax.swing.JPanel;
+
+import java.util.*;
+
+public class ChessMain {
+	/* some important stuff I gotta declare */
+	private JFrame frame = new JFrame("Chess");
+	private JLabel messageLabel = new JLabel("");
+	private GridLayout Dimensions = new GridLayout(8,8,2,2);
+	private static Square[] Chessboard = new Square[64];
+	private static Square CurrentSquare;
+	private static Square MostRecentlyEnteredSquare;
+	public char currentTurn = 'w';
+	public boolean turnComplete;
+	public boolean whiteWon = false;
+	public boolean blackWon = false;
+	public boolean tie = false;
+	public boolean check = false;
+	Piece WhiteKing;
+	Piece BlackKing;
+	static Piece Threatener; 
+	static Set<Integer> AllPossibleWhiteMoves =  new HashSet<Integer>();
+	static Set<Integer> AllPossibleBlackMoves =  new HashSet<Integer>();
+	
+	/* Chessmain:  Where pretty much everything happens */
+	public ChessMain(){
+		messageLabel.setBackground(Color.blue);
+		messageLabel.setText("Please wait...");
+		frame.getContentPane().add(messageLabel,"South");
+		
+		JPanel ChessboardInfo = new JPanel();
+		ChessboardInfo.setBackground(Color.black);
+		ChessboardInfo.setLayout(Dimensions);
+		
+		/* Mouse Listener to detect user actions */
+		MouseListener listener = new MouseAdapter() {
+			Object MostRecentlyEntered;
+			@Override
+			public void mousePressed(MouseEvent event){
+				Object source = event.getSource();
+				for (int i = 0 ; i != 64 ; i++){
+					if (source == Chessboard[i]){
+						CurrentSquare = Chessboard[i];
+						messageLabel.setText("You clicked square number "+i);
+						break;
+					}
+				}
+			}
+			
+			public void mouseEntered(MouseEvent event){
+				MostRecentlyEntered = event.getSource();
+				MostRecentlyEnteredSquare = (Square)MostRecentlyEntered;
+				
+			}
+			
+			public void mouseReleased(MouseEvent event){
+				/*if (WhiteKing.isThreatened){
+					
+				}
+				else if (BlackKing.isThreatened){
+					
+				}*/
+				{
+					if (CurrentSquare.getPiece() == null){
+						return;
+					}
+					Piece TargetPiece = CurrentSquare.getPiece();
+					if (TargetPiece.isLegal(MostRecentlyEnteredSquare) && TargetPiece.Team == currentTurn) {
+						//castling
+						if (TargetPiece.name == "King" && MostRecentlyEnteredSquare.getPiece() != null && MostRecentlyEnteredSquare.getPiece().name == "Rook"){
+							Piece tmp = MostRecentlyEnteredSquare.getPiece();
+							if (MostRecentlyEnteredSquare.getPos() == 0){
+								TargetPiece.changePos(2);
+								Chessboard[2].setPiece(CurrentSquare.getIcon(), TargetPiece);
+								Chessboard[3].setPiece(Chessboard[0].getIcon() , tmp);
+								CurrentSquare.clear();
+								Chessboard[0].clear();
+							}
+						}
+						else {
+							TargetPiece.changePos(MostRecentlyEnteredSquare.getPos() - CurrentSquare.getPos());
+							MostRecentlyEnteredSquare.setPiece(CurrentSquare.getIcon() , TargetPiece);
+							CurrentSquare.clear();
+						}
+						int whiteMoves = 0;
+						int blackMoves = 0;
+						AllPossibleWhiteMoves.clear();
+						AllPossibleBlackMoves.clear();
+						for (int i = 0 ; i != 64 ; i++){
+							if (Chessboard[i].getPiece() != null && Chessboard[i].getPiece().name != "King"){
+								if (Chessboard[i].getPiece().Team == 'w'){
+									whiteMoves += Chessboard[i].getPiece().updateMoves();
+									AllPossibleWhiteMoves.addAll(Chessboard[i].getPiece().PossibleMoves);
+								}
+								else {
+									blackMoves +=  Chessboard[i].getPiece().updateMoves();
+									AllPossibleBlackMoves.addAll(Chessboard[i].getPiece().PossibleMoves);
+								}
+							}
+						}
+						BlackKing.updateMoves();
+						WhiteKing.updateMoves();
+						turnComplete = true;
+						toggleTurn();
+						if (currentTurn == 'w'){
+							System.out.println("It is now white's turn with "+AllPossibleWhiteMoves.size()+" possible moves.");
+							if (whiteMoves == 0){
+								tie = true;
+							}
+							if (whiteMoves != 0 && WhiteKing.isThreatened){
+								messageLabel.setText("White King is in Check!");
+							}
+							if (whiteMoves == 0 && WhiteKing.isThreatened){
+								blackWon = true;
+								messageLabel.setText("CHECKMATE:  Black wins.");
+							}
+						}
+						else if (currentTurn == 'b'){
+							System.out.println("It is now black's turn with "+blackMoves+" possible moves.");
+							if (blackMoves == 0) {
+								tie = true;
+							}
+							if (blackMoves != 0 && BlackKing.isThreatened){
+								messageLabel.setText("Black King is in Check!");
+							}
+							if (blackMoves == 0 && BlackKing.isThreatened){
+								messageLabel.setText("CHECKMATE:  White wins.");
+								whiteWon = true;
+							}
+						}
+					}
+					
+					else if (TargetPiece.Team != currentTurn){
+						messageLabel.setText("Please wait for your turn.");
+					}
+					else {
+						messageLabel.setText("Illegal Move to "+ MostRecentlyEnteredSquare.Pos);
+					}		
+				}
+			}
+
+			private void toggleTurn() {
+				if (currentTurn == 'w'){
+					currentTurn = 'b';
+				}
+				else if (currentTurn == 'b'){
+					currentTurn = 'w';
+				}
+				
+			}
+		};
+		
+		
+		
+		/* Construct the board */
+		for (int i = 0 ; i != Chessboard.length ; i++){
+			Chessboard[i] = new Square(i);
+			Chessboard[i].addMouseListener(listener); 
+		}
+		
+		/* Construct the pieces */
+		ImageIcon whitepawn = new ImageIcon("whitepawn.png");
+		ImageIcon whiteknight = new ImageIcon("whiteknight.png");
+		ImageIcon whiterook = new ImageIcon("whiterook.png");
+		ImageIcon whitebishop = new ImageIcon("whitebishop.png");
+		ImageIcon whitequeen = new ImageIcon("whiteq.png");
+		ImageIcon whiteking = new ImageIcon("whitekinga.png");
+		
+		ImageIcon blackpawn = new ImageIcon("blackpawn.png");
+		ImageIcon blackknight = new ImageIcon("blackknight.png");
+		ImageIcon blackrook = new ImageIcon("blackrook.png");
+		ImageIcon blackbishop = new ImageIcon("blackbishop.png");
+		ImageIcon blackqueen = new ImageIcon("blackqueen.png");
+		ImageIcon blackking = new ImageIcon("blackkinga.png");
+		
+		/* setPiece requires two things: an image, and piece data (constructed from the piece classes). */
+		
+		for (int i = 8 ; i != 16 ;i++){
+			Chessboard[i].setPiece(blackpawn, new Pawn('b',i));
+		}
+		
+		Chessboard[1].setPiece(blackknight,new Knight('b',1));
+		Chessboard[6].setPiece(blackknight,new Knight('b',6));
+		Chessboard[0].setPiece(blackrook, new Rook('b',0));
+		Chessboard[7].setPiece(blackrook, new Rook('b',7));
+		Chessboard[2].setPiece(blackbishop, new Bishop('b',2));
+		Chessboard[5].setPiece(blackbishop, new Bishop('b',5));
+		Chessboard[3].setPiece(blackqueen, new Queen('b',3));
+		Chessboard[4].setPiece(blackking , new King('b',4));
+		
+		for (int i = 48 ; i!= 56 ; i++){
+			Chessboard[i].setPiece(whitepawn, new Pawn('w',i));
+		}
+		
+		Chessboard[57].setPiece(whiteknight, new Knight('w',57));
+		Chessboard[62].setPiece(whiteknight,new Knight('w',62));
+		Chessboard[56].setPiece(whiterook, new Rook('w',56));
+		Chessboard[63].setPiece(whiterook, new Rook('w',63));
+		Chessboard[61].setPiece(whitebishop, new Bishop('w',61));
+		Chessboard[58].setPiece(whitebishop, new Bishop('w',58));
+		Chessboard[59].setPiece(whitequeen, new Queen('w',59));
+		Chessboard[60].setPiece(whiteking , new King('w',60));
+		
+		for (int i = 0 ; i != Chessboard.length ; i++){
+			ChessboardInfo.add(Chessboard[i]);
+		}
+		
+		WhiteKing = Chessboard[60].getPiece();
+		BlackKing = Chessboard[4].getPiece();
+		
+		/* Print the Board */
+		frame.getContentPane().add(ChessboardInfo,"Center");	
+	
+	};
+
+	static class Piece{
+		char Team;
+		int pos;
+		String name = "";
+		Set<Integer> PossibleMoves =  new HashSet<Integer>();
+		boolean isThreatened;
+		
+		public Piece(char c, int i){
+			Team = c;
+			pos = i;
+		}
+		
+		public boolean isLegal(Square Move){
+			if (PossibleMoves.contains(Move.Pos)){
+				return true;
+			}
+			else {
+				return false;
+			}
+		}
+		
+		public String getName(){
+			return name;
+		}
+		
+		public void changePos(int i){
+			pos += i;
+		}
+		
+		public int updateMoves(){
+			return 0;
+		}
+		
+	};
+	
+	static class King extends Piece {
+		boolean isThreatened = false;
+		
+		public King(char c, int i){
+			super(c,i);
+			name = "King";
+		}
+		
+		public int updateMoves(){
+			PossibleMoves.clear();
+			int numMoves = 0;
+			int PossibleShifts[] = {-9, -8 ,-7 , -1, 1, 7, 8, 9}; // all the possible directions a king can move in
+			for (int i = 0 ; i != PossibleShifts.length ; i++){
+				if (0 <= pos+PossibleShifts[i] && pos+PossibleShifts[i] <= 63){
+					if (Chessboard[pos+PossibleShifts[i]].getPiece() != null){
+						if (Chessboard[pos+PossibleShifts[i]].getPiece().Team == Team) {
+							continue;
+						}
+						else {
+							if (Team == 'w' && (!(AllPossibleBlackMoves.contains(pos+PossibleShifts[i])))){
+								PossibleMoves.add(pos+PossibleShifts[i]);
+								numMoves++;
+							}
+							else if (Team == 'b' && (!(AllPossibleWhiteMoves.contains(pos+PossibleShifts[i])))){
+								PossibleMoves.add(pos+PossibleShifts[i]);
+								numMoves++;
+							}
+							if (Team == 'b' && ( Chessboard[0].getPiece().name == "Rook")){
+								if ( Chessboard[1].getPiece() == null && Chessboard[2].getPiece() == null && Chessboard[3].getPiece() == null){
+									System.out.println("yay go castle");
+									PossibleMoves.add(0);
+								}
+							}
+						}
+					}
+					else {
+						if (Team == 'w' && (!(AllPossibleBlackMoves.contains(pos+PossibleShifts[i])))){
+							PossibleMoves.add(pos+PossibleShifts[i]);
+							numMoves++;
+						}
+						else if (Team == 'b' && (!(AllPossibleWhiteMoves.contains(pos+PossibleShifts[i])))){
+							PossibleMoves.add(pos+PossibleShifts[i]);
+							numMoves++;
+						}
+					}
+				}
+			}
+			return numMoves;
+		}
+	};
+	
+	static class Pawn extends Piece {
+		boolean firstMove = true; 
+
+		public Pawn(char c, int i) {
+			super(c, i);
+			if (c == 'b'){
+				PossibleMoves.add(pos+16);
+				PossibleMoves.add(pos+8);
+				PossibleMoves.add(pos+7);
+			}
+			else if (c == 'w'){
+				PossibleMoves.add(pos-16);
+				PossibleMoves.add(pos-9);
+				PossibleMoves.add(pos-7);
+			}
+			name = "Pawn";
+			this.updateMoves();
+		}
+		
+		public int updateMoves(){
+			
+			// Note to self:  MASSIVE glitch where a pawn on the edge of a board can teleport to the +9 or -9 index skipping a bunch of shit.. 
+			int numMoves = 0;
+			PossibleMoves.clear();
+			if (Team == 'w'){
+				
+				if (firstMove == true){
+					if (Chessboard[pos-16].getPiece() == null ){
+						PossibleMoves.add(pos-16);
+						numMoves++;
+					}
+				}
+				
+				if (pos-8 >= 0 ){
+					if (Chessboard[pos-8].getPiece() == null){
+						PossibleMoves.add(pos-8);
+						numMoves++;
+					}
+				}
+				
+				if (pos-7 >= 0 && pos%8 != 7){
+					if (Chessboard[pos-7].getPiece() != null){
+						if(Chessboard[pos-7].getPiece().Team != 'w'){
+							PossibleMoves.add(pos-7);
+							numMoves++;
+							if (Chessboard[pos-7].getPiece().name == "King"){
+								Chessboard[pos-7].getPiece().isThreatened = true;
+								Threatener = this;
+							}
+						}
+					}
+				}
+				
+				if (pos-9 >= 0 && pos%8 != 0){
+					if (Chessboard[pos-9].getPiece() != null){
+						if(Chessboard[pos-9].getPiece().Team != 'w'){
+							PossibleMoves.add(pos-9);
+							numMoves++;
+							if (Chessboard[pos-9].getPiece().name == "King"){
+								Chessboard[pos-9].getPiece().isThreatened = true;
+								Threatener = this;
+							}
+						}
+					}
+				}
+				
+			}
+			
+			if (Team == 'b'){
+
+				if (this.firstMove){
+					if (Chessboard[pos+16].getPiece() == null ){
+						PossibleMoves.add(pos+16);
+						numMoves++;
+					}
+				}
+				
+				if (pos+8 <= 63){
+					if (Chessboard[pos+8].getPiece() == null){
+						PossibleMoves.add(pos+8);
+						numMoves++;
+					}
+				}
+				
+				if (pos+7 <= 63 && pos%8 != 0){
+					if (Chessboard[pos+7].getPiece() != null){
+						if(Chessboard[pos+7].getPiece().Team != 'b'){
+							PossibleMoves.add(pos+7);
+							numMoves++;
+							if (Chessboard[pos+7].getPiece().name == "King"){
+								Chessboard[pos+7].getPiece().isThreatened = true;
+								Threatener = this;
+							}
+						}
+					}
+				}
+				
+				if (pos+9 <= 63 && pos%8 != 7){
+					if (Chessboard[pos+9].getPiece() != null){
+						if(Chessboard[pos+9].getPiece().Team != 'b'){
+							PossibleMoves.add(pos+9);
+							numMoves++;
+							if (Chessboard[pos+9].getPiece().name == "King"){
+								Chessboard[pos+9].getPiece().isThreatened = true;
+								Threatener = this;
+							}
+						}
+					}
+				}
+			}
+			return numMoves;
+		}
+	};
+	
+	static class Knight extends Piece {
+		String name = "Knight";
+		
+		public Knight(char c, int i) {
+			super(c,i);
+			this.updateMoves();
+			name = "Knight";
+		}
+		
+		public int updateMoves(){
+			int numMoves = 0;
+			PossibleMoves.clear();
+			int PossibleShifts[] = {-10,10,-17,17,-15,15,-6,6};
+			for (int i = 0 ; i != PossibleShifts.length ; i++){
+				if (0 <= pos+PossibleShifts[i] && pos+PossibleShifts[i] <= 63){
+					if (Chessboard[pos+PossibleShifts[i]].getPiece() != null){
+						if (Chessboard[pos+PossibleShifts[i]].getPiece().Team != Team){
+							PossibleMoves.add(pos+PossibleShifts[i]);
+							numMoves++;
+							if (Chessboard[pos+PossibleShifts[i]].getPiece().name == "King"){
+								Chessboard[pos+PossibleShifts[i]].getPiece().isThreatened = true;
+								Threatener = this;
+							}
+						}
+					}
+					else {
+						PossibleMoves.add(pos+PossibleShifts[i]);
+					}		
+				}
+			}
+			return numMoves;
+		}
+	};
+	
+	static class Rook extends Piece {
+		
+		public Rook(char c , int i){
+			super(c,i);
+			name = "Rook";
+		}
+		
+		public int updateMoves(){
+			int numMoves = 0;
+			PossibleMoves.clear();
+			for (int i = (pos)%8-1 ; i >= 0 ; i--){
+				if (Chessboard[i+pos-pos%8].getPiece() != null){
+					if(Chessboard[i+pos-pos%8].getPiece().Team == Team){
+						break;
+					}
+					else {
+						numMoves++;
+						if (Chessboard[i+pos-pos%8].getPiece().name == "King"){
+							Chessboard[i+pos-pos%8].getPiece().isThreatened = true;
+							Threatener = this;
+						}
+						PossibleMoves.add(i+pos-pos%8);
+						break;
+					}
+				}
+				else {
+					numMoves++;
+					PossibleMoves.add(i+pos-pos%8);
+				}
+			}
+			
+			for (int i = ((pos)%8)+1 ; i != 8 ; i++){
+				if (Chessboard[i+pos-pos%8].getPiece() != null){
+					if(Chessboard[i+pos-pos%8].getPiece().Team == Team){
+						break;
+					}
+					else {
+						if (Chessboard[i+pos-pos%8].getPiece().name == "King"){
+							Chessboard[i+pos-pos%8].getPiece().isThreatened = true;
+							Threatener = this;
+						}
+						numMoves++;
+						PossibleMoves.add(i+pos-pos%8);
+						break;
+					}
+				}
+				else {
+					numMoves++;
+					PossibleMoves.add(i+pos-pos%8);
+				}
+			}
+			
+			for (int i = pos-8 ; i >= 0 ; i -= 8){
+				if (Chessboard[i].getPiece() != null){
+					if(Chessboard[i].getPiece().Team == Team){
+						break;
+					}
+					else {
+						if (Chessboard[i].getPiece().name == "King"){
+							Chessboard[i].getPiece().isThreatened = true;
+							Threatener = this;
+						}
+						numMoves++;
+						PossibleMoves.add(i);
+						break;
+					}
+				}
+				else {
+					numMoves++;
+					PossibleMoves.add(i);
+				}
+			}
+				
+			for (int i = pos+8 ; i <= 63 ; i+=8){
+				if (Chessboard[i].getPiece() != null){
+					if(Chessboard[i].getPiece().Team == Team){
+						break;
+					}
+					else {
+						if (Chessboard[i].getPiece().name == "King"){
+							Chessboard[i].getPiece().isThreatened = true;
+							Threatener = this;
+						}
+						numMoves++;
+						PossibleMoves.add(i);
+						break;
+					}
+				}
+				else {
+					numMoves++;
+					PossibleMoves.add(i);
+				}
+			}
+			return numMoves;
+		}
+	};
+	
+	static class Bishop extends Piece {
+		
+		public Bishop (char c, int i){
+			super(c,i);
+			this.updateMoves();
+			name = "Bishop";
+		}
+		
+		public int updateMoves(){
+			int numMoves = 0;
+			PossibleMoves.clear();
+			for (int i = pos-7 ; i%8 != 0 && i >= 0 ; i-=7 ){
+				if (i >= 0){
+					if (Chessboard[i].getPiece() != null){
+						if (Chessboard[i].getPiece().Team == Team){
+							break;
+						}
+						else {
+							numMoves++;
+							if (Chessboard[i].getPiece().name == "King"){
+								Chessboard[i].getPiece().isThreatened = true;
+								Threatener = this;
+							}
+							PossibleMoves.add(i);
+							break; 
+						}
+					}
+					else{
+						numMoves++;
+						PossibleMoves.add(i);
+					}
+					
+					if (i%8 == 0){
+						break;
+					}
+				}
+			}
+			
+			for (int i = pos+7 ; i < 64 ; i+=7){
+				if (i < 64){
+					if (Chessboard[i].getPiece() != null){
+						if (Chessboard[i].getPiece().Team == Team){
+							break;
+						}
+						else {
+							numMoves++;
+							if (Chessboard[i].getPiece().name == "King"){
+								Chessboard[i].getPiece().isThreatened = true;
+								Threatener = this;
+							}
+							PossibleMoves.add(i);
+							break;
+						}
+					}
+					else {
+						numMoves++;
+						PossibleMoves.add(i);
+					}
+				}
+				
+				if (i%8 == 7){
+					break;
+				}
+			}
+			
+			for (int i = pos-9 ; i%8 !=7 && i >= 0; i-= 9){
+				if (i >= 0){
+					if (Chessboard[i].getPiece() != null){
+						if (Chessboard[i].getPiece().Team == Team){
+							break;
+						}
+						else {
+							if (Chessboard[i].getPiece().name == "King"){
+								Chessboard[i].getPiece().isThreatened = true;
+								Threatener = this;
+							}
+							numMoves++;
+							PossibleMoves.add(i);
+							break;
+						}
+					}
+				
+					else {
+						numMoves++;
+						PossibleMoves.add(i);
+					}
+				}
+				if (i%8 == 0){
+					break;
+				}
+			}
+			
+			for (int i = pos+9 ; i<64 ; i+=9){
+				if (i < 64){
+					if (Chessboard[i].getPiece() != null){
+						if (Chessboard[i].getPiece().Team == Team){
+							break;
+						}
+						else {
+							if (Chessboard[i].getPiece().name == "King"){
+								Chessboard[i].getPiece().isThreatened = true;
+								Threatener = this;
+							}
+							numMoves++;
+							PossibleMoves.add(i);
+							break;
+						}
+					}
+				
+					else {
+						numMoves++;
+						PossibleMoves.add(i);
+					}
+				}
+				if (i%8 == 7){
+					break;
+				}
+			}
+			return numMoves;
+		}
+	};
+	
+	static class Queen extends Piece {
+		
+		public Queen (char c, int i){
+			super(c,i);
+			this.updateMoves();
+			name = "Queen";
+		}
+		
+		public int updateMoves(){
+			int numMoves = 0;
+			PossibleMoves.clear();
+			for (int i = pos-7 ; i%8 != 0 && i >= 0 ; i-=7 ){
+				if (i >= 0){
+					if (Chessboard[i].getPiece() != null){
+						if (Chessboard[i].getPiece().Team == Team){
+							break;
+						}
+						else {
+							numMoves++;
+							if (Chessboard[i].getPiece().name == "King"){
+								Chessboard[i].getPiece().isThreatened = true;
+								Threatener = this;
+							}
+							PossibleMoves.add(i);
+							break; 
+						}
+					}
+					else{
+						numMoves++;
+						PossibleMoves.add(i);
+					}
+					
+					if (i%8 == 0){
+						break;
+					}
+				}
+			}
+			
+			for (int i = pos+7 ; i < 64 ; i+=7){
+				if (i < 64){
+					if (Chessboard[i].getPiece() != null){
+						if (Chessboard[i].getPiece().Team == Team){
+							break;
+						}
+						else {
+							numMoves++;
+							if (Chessboard[i].getPiece().name == "King"){
+								Chessboard[i].getPiece().isThreatened = true;
+								Threatener = this;
+							}
+							PossibleMoves.add(i);
+							break;
+						}
+					}
+					else {
+						numMoves++;
+						PossibleMoves.add(i);
+					}
+				}
+				
+				if (i%8 == 7){
+					break;
+				}
+			}
+			
+			for (int i = pos-9 ; i%8 !=7 && i >= 0; i-= 9){
+				if (i >= 0){
+					if (Chessboard[i].getPiece() != null){
+						if (Chessboard[i].getPiece().Team == Team){
+							break;
+						}
+						else {
+							if (Chessboard[i].getPiece().name == "King"){
+								Chessboard[i].getPiece().isThreatened = true;
+								Threatener = this;
+							}
+							numMoves++;
+							PossibleMoves.add(i);
+							break;
+						}
+					}
+				
+					else {
+						numMoves++;
+						PossibleMoves.add(i);
+					}
+				}
+				if (i%8 == 0){
+					break;
+				}
+			}
+			
+			for (int i = pos+9 ; i<64 ; i+=9){
+				if (i < 64){
+					if (Chessboard[i].getPiece() != null){
+						if (Chessboard[i].getPiece().Team == Team){
+							break;
+						}
+						else {
+							numMoves++;							
+							if (Chessboard[i].getPiece().name == "King"){
+								Chessboard[i].getPiece().isThreatened = true;
+								Threatener = this;
+							}
+							PossibleMoves.add(i);
+							break;
+						}
+					}
+				
+					else {
+						numMoves++;
+						PossibleMoves.add(i);
+					}
+				}
+				if (i%8 == 7){
+					break;
+				}
+			}
+			
+			for (int i = (pos)%8-1 ; i >= 0 ; i--){
+				if (Chessboard[i+pos-pos%8].getPiece() != null){
+					if(Chessboard[i+pos-pos%8].getPiece().Team == Team){
+						break;
+					}
+					else {
+						numMoves++;
+						if (Chessboard[i+pos-pos%8].getPiece().name == "King"){
+							Chessboard[i+pos-pos%8].getPiece().isThreatened = true;
+							Threatener = this;
+						}
+						PossibleMoves.add(i+pos-pos%8);
+						break;
+					}
+				}
+				else {
+					numMoves++;
+					PossibleMoves.add(i+pos-pos%8);
+				}
+			}
+			
+			for (int i = ((pos)%8)+1 ; i != 8 ; i++){
+				if (Chessboard[i+pos-pos%8].getPiece() != null){
+					if(Chessboard[i+pos-pos%8].getPiece().Team == Team){
+						break;
+					}
+					else {
+						numMoves++;
+						if (Chessboard[i+pos-pos%8].getPiece().name == "King"){
+							Chessboard[i+pos-pos%87].getPiece().isThreatened = true;
+							Threatener = this;
+						}
+						PossibleMoves.add(i+pos-pos%8);
+						break;
+					}
+				}
+				else {
+					numMoves++;
+					PossibleMoves.add(i+pos-pos%8);
+				}
+			}
+			
+			for (int i = pos-8 ; i >= 0 ; i -= 8){
+				if (Chessboard[i].getPiece() != null){
+					if(Chessboard[i].getPiece().Team == Team){
+						break;
+					}
+					else {
+						numMoves++;
+						if (Chessboard[i].getPiece().name == "King"){
+							Chessboard[i].getPiece().isThreatened = true;
+							Threatener = this;
+						}
+						PossibleMoves.add(i);
+						break;
+					}
+				}
+				else {
+					numMoves++;
+					PossibleMoves.add(i);
+				}
+			}
+				
+			for (int i = pos+8 ; i <= 63 ; i+=8){
+				if (Chessboard[i].getPiece() != null){
+					if(Chessboard[i].getPiece().Team == Team){
+						break;
+					}
+					else {
+						numMoves++;
+						if (Chessboard[i].getPiece().name == "King"){
+							Chessboard[i].getPiece().isThreatened = true;
+							Threatener = this;
+						}
+						PossibleMoves.add(i);
+						break;
+					}
+				}
+				else {
+					numMoves++;
+					PossibleMoves.add(i);
+				}
+			}
+			return numMoves;
+		}
+	};
+	
+	static class Square extends JPanel {
+		JLabel label = new JLabel((Icon)null);
+		Piece piece = null;
+		int Pos;
+		Icon _icon;
+		
+		public Square() {
+			setBackground(Color.white);
+			add(label);
+		}
+
+		public Square(int n) {
+			setBackground(Color.white);
+			add(label);
+			Pos = n;
+		}
+		
+		public void setPiece(Icon icon, Piece _piece) {
+			label.setIcon(icon);
+			piece = _piece;
+			_icon = icon;
+		}
+		
+		public Icon getIcon(){
+			return _icon;
+		}
+		
+		public Piece getPiece(){
+			return piece;
+		}
+		
+		public int getPos(){
+			return Pos;
+		}
+		
+		public void clear(){
+			label.setIcon(null);
+			piece = null;
+		}
+	};
+	
+	
+	public void PlayGame() throws Exception {
+		try{
+			
+			while (true){
+			}
+		}
+		finally {
+			
+		}
+	}
+	
+	public static void main(String[] args) throws Exception{
+		System.out.println("current working directory is: " + System.getProperty("user.dir")); 
+		ChessMain game = new ChessMain();
+		game.frame.setSize(500, 560);
+		game.frame.setVisible(true);
+		game.PlayGame();
+	}
+}
